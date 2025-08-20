@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@interactjs/interactjs/dist/interact.min.js"></script>
+<title>Solitario</title>
+<style>
+  body {
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #2a2a2a;
+    color: white;
+    margin: 0;
+    padding: 20px;
+  }
+  #stacks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: flex-start;
+  }
+  .stack {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    position: relative;
+    min-width: 60px;
+    min-height: 90px;
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 6px;
+  }
+  .card {
+    width: 60px;
+    height: 90px;
+    margin-top: 20px;
+    border-radius: 5px;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    position: relative;
+    cursor: grab;
+  }
+  .stack.drag-over {
+    border-color: yellow;
+  }
+  button {
+    padding: 20px 30px;
+    font-size: 16px;
+    margin-top: 30px;
+    cursor: pointer;
+    border-radius: 8px;
+    border: none;
+    background: #444;
+    color: white;
+    transition: background 0.3s;
+  }
+  button:hover:enabled {
+    background: #666;
+  }
+  #endScreen {
+    position: fixed;
+    top:0;
+    left:0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 24px;
+    z-index: 2000;
+    display: none;
+  }
+
+  @media (max-width: 600px) {
+    .card {
+      width: 60px;
+      height: 60px;
+    }
+    .stack {
+      min-width: 60px;
+      min-height: 60px;
+    }
+    button {
+      padding: 12px 18px;
+      font-size: 14px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="loadingScreen" style="position: fixed; top:0; left:0; width:100%; height:100%; background:#2a2a2a; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; z-index:3000;">
+    <p>Caricamento immagini...</p>
+    <div style="width:80%; background:#444; border-radius:8px; overflow:hidden; margin-top:20px;">
+        <div id="loadingBar" style="width:0%; height:20px; background:green;"></div>
+    </div>
+</div>
+
+<h1>Solitario</h1>
+<p id="remainingCards">Carte rimaste: 40</p>
+
+<div id="stacks"></div>
+
+<button id="drawBtn">Pesca</button>
+
+<div id="endScreen">
+  <p id="endMessage"></p>
+  <button id="restartBtn">Rigioca</button>
+</div>
+
+<script>
+class Card {
+    constructor(seed, value, image) {
+        this.seed = seed;
+        this.value = value;
+        this.image = image;
+    }
+}
+
+const seeds = ["Bastoni", "Denara", "Spade", "Coppe"];
+const values = Array.from({length:10}, (_, i) => i+1);
+let cards = [];
+for (let seed of seeds) {
+    for (let value of values) {
+        cards.push(new Card(seed, value, `cards/${seed}${value}.png`));
+    }
+}
+
+function shuffle(array) {
+    for (let i = array.length-1; i>0; i--) {
+        const j = Math.floor(Math.random() * (i+1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function preloadImages(cards, callback) {
+    let loaded = 0;
+    const total = cards.length;
+
+    // Mostra la barra di caricamento
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loadingBar = document.getElementById('loadingBar');
+
+    // Crea un container invisibile per tenere in cache le immagini
+    const cacheContainer = document.createElement('div');
+    cacheContainer.style.display = 'none';
+    document.body.appendChild(cacheContainer);
+
+    for (let card of cards) {
+        const img = new Image();
+
+        img.onload = img.onerror = () => {
+            loaded++;
+            const percent = Math.floor((loaded / total) * 100);
+            loadingBar.style.width = percent + '%';
+
+            if (loaded === total) {
+                // Tutte le immagini sono pronte
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none'; // Nascondi la barra
+                    document.body.removeChild(cacheContainer);
+                    callback?.();
+                }, 300); // piccola pausa per dare effetto visivo
+            }
+        };
+
+        img.src = card.image;
+        cacheContainer.appendChild(img);
+    }
+}
+
+
+
+cards = shuffle(cards);
+preloadImages(cards, () => {
+    renderStacks(); // render iniziale
+    makeCardsDraggable();
+    updateRemainingCards();
+});
+
+const stacksContainer = document.getElementById("stacks");
+let stacks = [];
+const drawBtn = document.getElementById("drawBtn");
+const remainingCardsEl = document.getElementById("remainingCards");
+const endScreen = document.getElementById("endScreen");
+const endMessage = document.getElementById("endMessage");
+const restartBtn = document.getElementById("restartBtn");
+
+function updateRemainingCards() {
+    remainingCardsEl.textContent = `Carte rimaste: ${cards.length}`;
+}
+updateRemainingCards();
+
+function checkIfPair(card1, card2) {
+    return card1.value === card2.value || card1.seed === card2.seed;
+}
+
+function makeCardsDraggable() {
+    interact('.card')
+        .draggable({
+            inertia: true,
+            modifiers: [
+                interact.modifiers.restrictRect({
+                    restriction: 'parent',
+                    endOnly: true
+                })
+            ],
+            listeners: {
+                move (event) {
+                    const target = event.target;
+                    const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                    const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+
+                    target.style.transform = `translate(${x}px, ${y}px)`;
+
+                    target.setAttribute('data-x', x);
+                    target.setAttribute('data-y', y);
+                },
+                end (event) {
+                    // Detect which stack the card is dropped onto
+                    const card = event.target;
+                    const midIdx = parseInt(card.dataset.stack);
+                    
+                    stacks.forEach((stack, idx) => {
+                        const stackDiv = stacksContainer.children[idx];
+                        const rect = stackDiv.getBoundingClientRect();
+                        const cardRect = card.getBoundingClientRect();
+
+                        if (
+                            cardRect.left + cardRect.width/2 > rect.left &&
+                            cardRect.left + cardRect.width/2 < rect.right &&
+                            cardRect.top + cardRect.height/2 > rect.top &&
+                            cardRect.top + cardRect.height/2 < rect.bottom
+                        ) {
+                            // enforce rule: only middle onto left if left & right match
+                            const leftIdx = idx;
+                            const rightIdx = leftIdx + 2;
+                            if (midIdx !== leftIdx+1) return;
+                            if (rightIdx >= stacks.length) return;
+
+                            const leftCard = stacks[leftIdx][stacks[leftIdx].length-1];
+                            const rightCard = stacks[rightIdx][stacks[rightIdx].length-1];
+
+                            if (checkIfPair(leftCard, rightCard)) {
+                                stacks[leftIdx].push(...stacks[midIdx]);
+                                stacks.splice(midIdx, 1);
+                                renderStacks();
+                                checkEndGame();
+                            }
+                        }
+                    });
+
+                    // Reset position
+                    card.style.transform = '';
+                    card.setAttribute('data-x', 0);
+                    card.setAttribute('data-y', 0);
+                }
+            }
+        });
+}
+
+
+function renderStacks() {
+    stacksContainer.innerHTML = "";
+    stacks.forEach((stack, idx) => {
+        const stackDiv = document.createElement("div");
+        stackDiv.className = "stack";
+        stackDiv.dataset.index = idx;
+
+        if (stack.length > 0) {
+            const topCard = stack[stack.length-1];
+            const cardDiv = document.createElement("div");
+            cardDiv.className = "card";
+            cardDiv.style.backgroundImage = `url(${topCard.image})`;
+            cardDiv.draggable = true;
+            cardDiv.dataset.stack = idx;
+
+            cardDiv.addEventListener("dragstart", (e) => {
+                e.dataTransfer.setData("text/plain", idx);
+            });
+
+            stackDiv.appendChild(cardDiv);
+        }
+
+        stackDiv.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            stackDiv.classList.add("drag-over");
+        });
+        stackDiv.addEventListener("dragleave", () => {
+            stackDiv.classList.remove("drag-over");
+        });
+        stackDiv.addEventListener("drop", (e) => {
+            e.preventDefault();
+            stackDiv.classList.remove("drag-over");
+
+            const fromIdx = parseInt(e.dataTransfer.getData("text/plain"));
+            const toIdx = parseInt(stackDiv.dataset.index);
+            if (fromIdx === toIdx) return;
+
+            // enforce rule: only middle onto left if left & right match
+            const leftIdx = toIdx;
+            const midIdx = fromIdx;
+            const rightIdx = leftIdx + 2;
+
+            if (midIdx !== leftIdx+1) return; // must be exactly middle
+            if (rightIdx >= stacks.length) return;
+
+            const leftCard = stacks[leftIdx][stacks[leftIdx].length-1];
+            const rightCard = stacks[rightIdx][stacks[rightIdx].length-1];
+
+            if (checkIfPair(leftCard,rightCard)) {
+                stacks[leftIdx].push(...stacks[midIdx]);
+                stacks.splice(midIdx,1);
+                renderStacks();
+                checkEndGame();
+            }
+        });
+
+        stacksContainer.appendChild(stackDiv);
+    });
+}
+
+function checkEndGame() {
+    // If deck is not empty, game can't be over yet
+    if (cards.length > 0) return;
+
+    // Check if there are any possible moves left
+    let movesAvailable = false;
+
+    for (let i = 1; i < stacks.length - 1; i += 2) {
+        const leftCard = stacks[i - 1][stacks[i - 1].length - 1];
+        const middleStack = stacks[i];
+        const rightCard = stacks[i + 1][stacks[i + 1].length - 1];
+
+        if (middleStack.length > 0 && checkIfPair(leftCard, rightCard)) {
+            movesAvailable = true;
+            break;
+        }
+    }
+
+    if (movesAvailable) {
+        // There are still moves available, don't end the game
+        return;
+    }
+
+    // Game over: either won or lost
+    if (stacks.length === 2) {
+        endMessage.textContent = "Hai vinto! :)";
+    } else {
+        endMessage.textContent = "Hai perso :( - Numero di mazzi rimasti: " + stacks.length;
+    }
+    endScreen.style.display = "flex";
+    drawBtn.disabled = true;
+}
+
+
+drawBtn.addEventListener("click", () => {
+    if (cards.length === 0) return;
+    const card = cards.shift();
+    stacks.push([card]);
+    renderStacks();
+    updateRemainingCards();
+    checkEndGame();
+});
+
+restartBtn.addEventListener("click", () => {
+    cards = [];
+    for (let seed of seeds) {
+        for (let value of values) {
+            cards.push(new Card(seed, value, `cards/${seed}${value}.png`));
+        }
+    }
+    cards = shuffle(cards);
+    stacks = [];
+    updateRemainingCards();
+    renderStacks();
+    endScreen.style.display = "none";
+    drawBtn.disabled = false;
+});
+
+renderStacks();
+</script>
+</body>
+</html>
+
