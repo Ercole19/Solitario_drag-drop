@@ -264,38 +264,57 @@ function initDragAndDrop() {
 
   interact('.stack').dropzone({
     ondragenter(event) {
-      event.target.classList.add("drag-over");
+        event.target.classList.add("drag-over");
     },
     ondragleave(event) {
-      event.target.classList.remove("drag-over");
+        event.target.classList.remove("drag-over");
     },
     ondrop(event) {
-      const draggedCardEl = event.relatedTarget;
-      const fromStackIdx = parseInt(draggedCardEl.dataset.stack);
-      const toStackIdx = parseInt(event.target.dataset.index);
+        const draggedCardEl = event.relatedTarget;
+        const fromStackIdx = parseInt(draggedCardEl.dataset.stack);
+        const toStackIdx = parseInt(event.target.dataset.index);
 
-      if (fromStackIdx === toStackIdx) return; // can't merge into self
+        if (fromStackIdx === toStackIdx) return; // can't drop on self
 
-      const fromStack = stacks[fromStackIdx];
-      const toStack = stacks[toStackIdx];
+        const fromStack = stacks[fromStackIdx];
+        const toStack = stacks[toStackIdx];
 
-      // Only merge if top cards match
-      const topFrom = fromStack[fromStack.length - 1];
-      const topTo = toStack[toStack.length - 1];
+        // Only merge if top cards match
+        const topFrom = fromStack[fromStack.length - 1];
+        const topTo = toStack[toStack.length - 1];
 
-      if (!checkIfPair(topFrom, topTo)) return;
+        if (!checkIfPair(topFrom, topTo)) return;
 
-      // Merge fromStack into toStack
-      toStack.push(...fromStack);
+        // New merge logic: center goes to left, right is shifted
+        // Determine neighbors
+        const leftIdx = toStackIdx - 1;
+        const rightIdx = toStackIdx + 1;
 
-      // Remove the old stack
-      stacks.splice(fromStackIdx, 1);
+        if (leftIdx >= 0 && rightIdx < stacks.length) {
+            const leftCard = stacks[leftIdx][stacks[leftIdx].length - 1];
+            const rightCard = stacks[rightIdx][stacks[rightIdx].length - 1];
 
-      // Update data-stack attributes for all cards
-      renderStacks();
-      checkEndGame();
+            if (checkIfPair(leftCard, rightCard)) {
+                // Move center stack (toStack) to left
+                stacks[leftIdx].push(...toStack);
+                // Remove center stack
+                stacks.splice(toStackIdx, 1);
+
+                renderStacks();
+                checkEndGame();
+                return;
+            }
+        }
+
+        // Otherwise, just merge normally
+        toStack.push(...fromStack);
+        stacks.splice(fromStackIdx, 1);
+
+        renderStacks();
+        checkEndGame();
     }
-  });
+});
+
 }
 
 
