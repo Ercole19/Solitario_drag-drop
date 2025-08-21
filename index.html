@@ -113,7 +113,7 @@
   <p id="endMessage"></p>
   <button id="restartBtn">Rigioca</button>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
 <script>
 class Card {
     constructor(seed, value, image) {
@@ -183,8 +183,6 @@ cards = shuffle(cards);
 
 preloadImages(cards, () => {
     renderStacks(); // render iniziale
-    makeCardsDraggable();
-    makeStacksDropzones();
     updateRemainingCards();
 });
 
@@ -208,166 +206,81 @@ function checkIfPair(card1, card2) {
 // Make cards draggable and follow finger
 let topZIndex = 1000; // keep track of top z-index for dragged cards
 
-function makeCardsDraggable() {
-  interact('.card')
-    .draggable({
-      inertia: true,
-      autoScroll: true,
-      listeners: {
-        move(event) {
-          const target = event.target;
-
-          const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-          const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-
-          target.style.transform = `translate(${x}px, ${y}px)`;
-          target.setAttribute('data-x', x);
-          target.setAttribute('data-y', y);
-        },
-        end(event) {
-          const card = event.target;
-          const cardRect = card.getBoundingClientRect();
-
-          let dropped = false;
-
-          stacksContainer.querySelectorAll('.stack').forEach(stackDiv => {
-            const stackRect = stackDiv.getBoundingClientRect();
-            const stackIdx = parseInt(stackDiv.dataset.index);
-
-            if (
-              cardRect.left + cardRect.width/2 > stackRect.left &&
-              cardRect.left + cardRect.width/2 < stackRect.right &&
-              cardRect.top + cardRect.height/2 > stackRect.top &&
-              cardRect.top + cardRect.height/2 < stackRect.bottom
-            ) {
-              dropped = handleDrop(card, stackIdx);
-            }
-          });
-
-          // Snap back to place with smooth transition
-          card.style.transition = "transform 0.25s ease";
-          card.style.transform = "translate(0,0)";
-
-          setTimeout(() => {
-            card.style.transition = ""; // remove after animation
-          }, 250);
-
-          card.removeAttribute('data-x');
-          card.removeAttribute('data-y');
+function initDragAndDrop() {
+      interact('.card').draggable({
+        listeners: {
+          move (event) {
+            const target = event.target;
+            const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+            const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+            target.style.transform = `translate(${x}px, ${y}px)`;
+            target.setAttribute('data-x', x);
+            target.setAttribute('data-y', y);
+          },
+          end (event) {
+            event.target.style.transform = 'none';
+            event.target.removeAttribute('data-x');
+            event.target.removeAttribute('data-y');
+          }
         }
-      }
-    });
-}
+      });
 
-function handleDrop(card, toIdx) {
-  const fromIdx = parseInt(card.dataset.stack);
-  if (fromIdx === toIdx) return false;
-
-  const leftIdx = toIdx;
-  const midIdx = fromIdx;
-  const rightIdx = leftIdx + 2;
-
-  if (midIdx !== leftIdx + 1) return false; 
-  if (rightIdx >= stacks.length) return false;
-
-  const leftCard = stacks[leftIdx][stacks[leftIdx].length - 1];
-  const rightCard = stacks[rightIdx][stacks[rightIdx].length - 1];
-
-  if (checkIfPair(leftCard, rightCard)) {
-    stacks[leftIdx].push(...stacks[midIdx]);
-    stacks.splice(midIdx, 1);
-    renderStacks();
-    checkEndGame();
-    return true;
-  }
-  return false;
-}
-
-function makeStacksDropzones() {
-    interact('.stack').dropzone({
-        overlap: 0.5,
+      interact('.stack').dropzone({
         ondragenter(event) {
-            event.target.classList.add('drag-over');
+          event.target.classList.add("drag-over");
         },
         ondragleave(event) {
-            event.target.classList.remove('drag-over');
+          event.target.classList.remove("drag-over");
         },
         ondrop(event) {
-            const card = event.relatedTarget;
-            event.target.appendChild(card);
-            card.style.transition = 'transform 0.2s ease';
-            card.style.transform = 'translate(0px, 0px)';
-            card.removeAttribute('data-x');
-            card.removeAttribute('data-y');
+          const fromIdx = parseInt(event.relatedTarget.dataset.stack);
+          const toIdx = parseInt(event.target.dataset.index);
+          if (fromIdx === toIdx) return;
 
-            setTimeout(() => card.style.transition = '', 200);
+          const leftIdx = toIdx;
+          const midIdx = fromIdx;
+          const rightIdx = leftIdx + 2;
 
-            event.target.classList.remove('drag-over');
-            handleCardDrop(card, event.target);
+          if (midIdx !== leftIdx + 1) return; // deve essere il "mezzo"
+          if (rightIdx >= stacks.length) return;
+
+          const leftCard = stacks[leftIdx][stacks[leftIdx].length-1];
+          const rightCard = stacks[rightIdx][stacks[rightIdx].length-1];
+
+          if (checkIfPair(leftCard, rightCard)) {
+            stacks[leftIdx].push(...stacks[midIdx]);
+            stacks.splice(midIdx, 1);
+            renderStacks();
+            checkEndGame();
+          }
         }
-    });
-}
+      });
+    }
 
 
 function renderStacks() {
-    stacksContainer.innerHTML = "";
-    stacks.forEach((stack, idx) => {
-        const stackDiv = document.createElement("div");
-        stackDiv.className = "stack";
-        stackDiv.dataset.index = idx;
+      stacksContainer.innerHTML = "";
+
+      stacks.forEach((stack, idx) => {
+        const div = document.createElement("div");
+        div.className = "stack";
+        div.dataset.index = idx;
 
         if (stack.length > 0) {
-            const topCard = stack[stack.length-1];
-            const cardDiv = document.createElement("div");
-            cardDiv.className = "card";
-            cardDiv.style.backgroundImage = `url(${topCard.image})`;
-            cardDiv.draggable = true;
-            cardDiv.dataset.stack = idx;
-
-            cardDiv.addEventListener("dragstart", (e) => {
-                e.dataTransfer.setData("text/plain", idx);
-            });
-
-            stackDiv.appendChild(cardDiv);
+          const topCard = stack[stack.length - 1];
+          const cardDiv = document.createElement("div");
+          cardDiv.className = "card";
+          cardDiv.style.backgroundImage = `url(${topCard.image})`;
+          cardDiv.dataset.stack = idx;
+          div.appendChild(cardDiv);
         }
 
-        stackDiv.addEventListener("dragover", (e) => {
-            e.preventDefault();
-            stackDiv.classList.add("drag-over");
-        });
-        stackDiv.addEventListener("dragleave", () => {
-            stackDiv.classList.remove("drag-over");
-        });
-        stackDiv.addEventListener("drop", (e) => {
-            e.preventDefault();
-            stackDiv.classList.remove("drag-over");
+        stacksContainer.appendChild(div);
+      });
 
-            const fromIdx = parseInt(e.dataTransfer.getData("text/plain"));
-            const toIdx = parseInt(stackDiv.dataset.index);
-            if (fromIdx === toIdx) return;
-
-            // enforce rule: only middle onto left if left & right match
-            const leftIdx = toIdx;
-            const midIdx = fromIdx;
-            const rightIdx = leftIdx + 2;
-
-            if (midIdx !== leftIdx+1) return; // must be exactly middle
-            if (rightIdx >= stacks.length) return;
-
-            const leftCard = stacks[leftIdx][stacks[leftIdx].length-1];
-            const rightCard = stacks[rightIdx][stacks[rightIdx].length-1];
-
-            if (checkIfPair(leftCard,rightCard)) {
-                stacks[leftIdx].push(...stacks[midIdx]);
-                stacks.splice(midIdx,1);
-                renderStacks();
-                checkEndGame();
-            }
-        });
-
-        stacksContainer.appendChild(stackDiv);
-    });
-}
+      // riattiva drag & drop dopo ogni render
+      initDragAndDrop();
+    }
 
 function checkEndGame() {
     // If deck is not empty, game can't be over yet
