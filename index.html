@@ -313,37 +313,41 @@ function initDragAndDrop() {
 
 
 function checkEndGame() {
-    // If deck is not empty, game can't be over yet
-    if (cards.length > 0) return;
+  // If deck is not empty, game can't be over yet
+  if (cards.length > 0) return;
 
-    // Check if there are any possible moves left
-    let movesAvailable = false;
+  // Look for ANY index with left & right neighbors where the rule holds
+  let movesAvailable = false;
 
-    for (let i = 1; i < stacks.length - 1; i += 2) {
-        const leftCard = stacks[i - 1][stacks[i - 1].length - 1];
-        const middleStack = stacks[i];
-        const rightCard = stacks[i + 1][stacks[i + 1].length - 1];
+  for (let mid = 1; mid <= stacks.length - 2; mid++) {
+    const midStack = stacks[mid];
+    if (!midStack || midStack.length === 0) continue; // must have a middle stack
 
-        if (middleStack.length > 0 && checkIfPair(leftCard, rightCard)) {
-            movesAvailable = true;
-            break;
-        }
+    const leftStack  = stacks[mid - 1];
+    const rightStack = stacks[mid + 1];
+    if (!leftStack || !rightStack) continue;
+
+    const leftCard  = leftStack[leftStack.length - 1];
+    const rightCard = rightStack[rightStack.length - 1];
+    if (!leftCard || !rightCard) continue;
+
+    if (checkIfPair(leftCard, rightCard)) {
+      movesAvailable = true;
+      break;
     }
+  }
 
-    if (movesAvailable) {
-        // There are still moves available, don't end the game
-        return;
-    }
+  if (movesAvailable) return;
 
-    // Game over: either won or lost
-    if (stacks.length === 2) {
-        endMessage.textContent = "Hai vinto! :)";
-    } else {
-        endMessage.textContent = "Hai perso :( - Numero di mazzi rimasti: " + stacks.length;
-    }
-    endScreen.style.display = "flex";
-    drawBtn.disabled = true;
+  // Game over: either won or lost (your rule: win when 2 stacks remain)
+  endMessage.textContent = (stacks.length === 2)
+    ? "Hai vinto! :)"
+    : "Hai perso :( - Numero di mazzi rimasti: " + stacks.length;
+
+  endScreen.style.display = "flex";
+  drawBtn.disabled = true;
 }
+
 
 
 drawBtn.addEventListener("click", () => {
