@@ -254,7 +254,6 @@ function initDragAndDrop() {
         target.setAttribute('data-y', y);
       },
       end(event) {
-        // Reset transform
         const target = event.target;
         target.style.transform = 'none';
         target.removeAttribute('data-x');
@@ -272,30 +271,33 @@ function initDragAndDrop() {
     },
     ondrop(event) {
       const draggedCardEl = event.relatedTarget;
-      const fromIdx = parseInt(draggedCardEl.dataset.stack);
-      const toIdx = parseInt(event.target.dataset.index);
+      const fromStackIdx = parseInt(draggedCardEl.dataset.stack);
+      const toStackIdx = parseInt(event.target.dataset.index);
 
-      if (fromIdx === toIdx) return; // cannot drop on same stack
+      if (fromStackIdx === toStackIdx) return; // can't merge into self
 
-      const fromStack = stacks[fromIdx];
-      const toStack = stacks[toIdx];
+      const fromStack = stacks[fromStackIdx];
+      const toStack = stacks[toStackIdx];
 
-      // Only allow moving the top card of the fromStack
-      const topCardObj = fromStack[fromStack.length - 1];
-      const targetCardObj = toStack[toStack.length - 1];
+      // Only merge if top cards match
+      const topFrom = fromStack[fromStack.length - 1];
+      const topTo = toStack[toStack.length - 1];
 
-      if (!checkIfPair(topCardObj, targetCardObj)) return;
+      if (!checkIfPair(topFrom, topTo)) return;
 
-      // Merge the stack
+      // Merge fromStack into toStack
       toStack.push(...fromStack);
-      stacks.splice(fromIdx, 1);
 
-      // Re-render stacks and update dataset.stack for each card
+      // Remove the old stack
+      stacks.splice(fromStackIdx, 1);
+
+      // Update data-stack attributes for all cards
       renderStacks();
       checkEndGame();
     }
   });
 }
+
 
 
 function checkEndGame() {
