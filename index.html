@@ -209,45 +209,78 @@ function checkIfPair(card1, card2) {
 let topZIndex = 1000; // keep track of top z-index for dragged cards
 
 function makeCardsDraggable() {
-    interact('.card')
-        .draggable({
-            inertia: true,
-            modifiers: [
-                interact.modifiers.restrictRect({
-                    restriction: 'parent',
-                    endOnly: false
-                })
-            ],
-            listeners: {
-                start(event) {
-                    // Bring the card to the front when starting drag
-                    event.target.style.zIndex = ++topZIndex;
-                },
-                move(event) {
-                    const target = event.target;
-                    let x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-                    let y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-                    target.style.transform = `translate(${x}px, ${y}px)`;
-                    target.setAttribute('data-x', x);
-                    target.setAttribute('data-y', y);
-                },
-                end(event) {
-                    const card = event.target;
-                    if (!card.parentElement.classList.contains('stack')) {
-                        // Snap back smoothly
-                        card.style.transition = 'transform 0.3s ease';
-                        card.style.transform = 'translate(0px, 0px)';
-                        card.removeAttribute('data-x');
-                        card.removeAttribute('data-y');
+  interact('.card')
+    .draggable({
+      inertia: true,
+      autoScroll: true,
+      listeners: {
+        move(event) {
+          const target = event.target;
 
-                        setTimeout(() => {
-                            card.style.transition = ''; // remove transition after snap
-                        }, 300);
-                    }
-                }
-            },
-            touchAction: 'none'
-        });
+          const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+          const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+
+          target.style.transform = `translate(${x}px, ${y}px)`;
+          target.setAttribute('data-x', x);
+          target.setAttribute('data-y', y);
+        },
+        end(event) {
+          const card = event.target;
+          const cardRect = card.getBoundingClientRect();
+
+          let dropped = false;
+
+          stacksContainer.querySelectorAll('.stack').forEach(stackDiv => {
+            const stackRect = stackDiv.getBoundingClientRect();
+            const stackIdx = parseInt(stackDiv.dataset.index);
+
+            if (
+              cardRect.left + cardRect.width/2 > stackRect.left &&
+              cardRect.left + cardRect.width/2 < stackRect.right &&
+              cardRect.top + cardRect.height/2 > stackRect.top &&
+              cardRect.top + cardRect.height/2 < stackRect.bottom
+            ) {
+              dropped = handleDrop(card, stackIdx);
+            }
+          });
+
+          // Snap back to place with smooth transition
+          card.style.transition = "transform 0.25s ease";
+          card.style.transform = "translate(0,0)";
+
+          setTimeout(() => {
+            card.style.transition = ""; // remove after animation
+          }, 250);
+
+          card.removeAttribute('data-x');
+          card.removeAttribute('data-y');
+        }
+      }
+    });
+}
+
+function handleDrop(card, toIdx) {
+  const fromIdx = parseInt(card.dataset.stack);
+  if (fromIdx === toIdx) return false;
+
+  const leftIdx = toIdx;
+  const midIdx = fromIdx;
+  const rightIdx = leftIdx + 2;
+
+  if (midIdx !== leftIdx + 1) return false; 
+  if (rightIdx >= stacks.length) return false;
+
+  const leftCard = stacks[leftIdx][stacks[leftIdx].length - 1];
+  const rightCard = stacks[rightIdx][stacks[rightIdx].length - 1];
+
+  if (checkIfPair(leftCard, rightCard)) {
+    stacks[leftIdx].push(...stacks[midIdx]);
+    stacks.splice(midIdx, 1);
+    renderStacks();
+    checkEndGame();
+    return true;
+  }
+  return false;
 }
 
 function makeStacksDropzones() {
