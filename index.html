@@ -222,87 +222,93 @@ function renderStacks() {
   stacks.forEach((stack, idx) => {
     const stackDiv = document.createElement("div");
     stackDiv.className = "stack";
-    stackDiv.dataset.index = idx;
+    stackDiv.dataset.index = String(idx);
 
     if (stack.length > 0) {
       const topCard = stack[stack.length - 1];
       const cardDiv = document.createElement("div");
       cardDiv.className = "card";
       cardDiv.style.backgroundImage = `url(${topCard.image})`;
-      cardDiv.dataset.stack = idx; // track the original stack
+      cardDiv.dataset.stack = String(idx); // current stack index
       stackDiv.appendChild(cardDiv);
     }
 
     stacksContainer.appendChild(stackDiv);
   });
 
-  initDragAndDrop(); // reinitialize after rendering
+  // Rebind DnD cleanly every render
+  initDragAndDrop();
 }
 
 function initDragAndDrop() {
+  // Important: clear previous interactables to avoid duplicate handlers
+  try { interact('.card').unset(); } catch (_) {}
+  try { interact('.stack').unset(); } catch (_) {}
+
   interact('.card').draggable({
     listeners: {
       start(event) {
-        event.target.style.zIndex = topZIndex++;
+        event.target.style.zIndex = ++topZIndex;
       },
       move(event) {
-        const target = event.target;
-        const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-        const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-        target.style.transform = `translate(${x}px, ${y}px)`;
-        target.setAttribute('data-x', x);
-        target.setAttribute('data-y', y);
+        const t = event.target;
+        const x = (parseFloat(t.getAttribute('data-x')) || 0) + event.dx;
+        const y = (parseFloat(t.getAttribute('data-y')) || 0) + event.dy;
+        t.style.transform = `translate(${x}px, ${y}px)`;
+        t.setAttribute('data-x', x);
+        t.setAttribute('data-y', y);
       },
       end(event) {
-        const target = event.target;
-        target.style.transform = 'none';
-        target.removeAttribute('data-x');
-        target.removeAttribute('data-y');
+        const t = event.target;
+        t.style.transform = '';
+        t.removeAttribute('data-x');
+        t.removeAttribute('data-y');
       }
     }
   });
-   
-  
 
-interact('.stack').dropzone({
+  interact('.stack').dropzone({
+    accept: '.card',
+    overlap: 0.35,
+    ondragenter(e) { e.target.classList.add('drag-over'); },
+    ondragleave(e) { e.target.classList.remove('drag-over'); },
     ondrop(event) {
-        const draggedCardEl = event.relatedTarget; // the middle card being dragged
-        const targetStackEl = event.target; // the left stack
-        const draggedStackIdx = parseInt(draggedCardEl.dataset.stack);
-        const targetStackIdx = parseInt(targetStackEl.dataset.index);
+      const draggedEl = event.relatedTarget;           // the rendered top card element
+      const fromIdx = Number(draggedEl.dataset.stack); // index of the dragged (middle) stack
+      const toIdx = Number(event.target.dataset.index);
 
-        const draggedStack = stacks[draggedStackIdx];
-        const targetStack = stacks[targetStackIdx];
+      // Guard: valid indices and not dropping on itself
+      if (!Number.isInteger(fromIdx) || !Number.isInteger(toIdx)) return;
+      if (fromIdx === toIdx) return;
 
-        const draggedCard = draggedStack[draggedStack.length - 1];
+      // Must have both neighbors (i.e., be a "middle" stack)
+      if (fromIdx <= 0 || fromIdx >= stacks.length - 1) return;
 
-        // Only proceed if dragging middle card (has left and right neighbors)
-        if (draggedStack.length === 1 && draggedStackIdx > 0 && draggedStackIdx < stacks.length - 1) {
-            const leftNeighbor = stacks[draggedStackIdx - 1][stacks[draggedStackIdx - 1].length - 1];
-            const rightNeighbor = stacks[draggedStackIdx + 1][stacks[draggedStackIdx + 1].length - 1];
+      const leftIdx  = fromIdx - 1;
+      const rightIdx = fromIdx + 1;
 
-            if (leftNeighbor.seed === rightNeighbor.seed) { // or compare value
-                // Merge dragged card into the left stack
-                targetStack.push(draggedCard);
+      // Only allow dropping onto the LEFT neighbor (keeps UX and indices simple)
+      if (toIdx !== leftIdx) return;
 
-                // Remove the dragged card from its original stack
-                draggedStack.pop();
+      const leftTop  = stacks[leftIdx][stacks[leftIdx].length - 1];
+      const rightTop = stacks[rightIdx][stacks[rightIdx].length - 1];
+      if (!leftTop || !rightTop) return;
 
-                renderStacks();
-                return;
-            }
-        }
+      // Pair rule (seed OR value) — uses your checkIfPair
+      if (!checkIfPair(leftTop, rightTop)) return;
 
-        // fallback: normal move/merge if not middle-card condition
-        targetStack.push(...draggedStack);
-        stacks.splice(draggedStackIdx, 1);
-        renderStacks();
+      // Merge the entire middle stack into the LEFT stack
+      stacks[leftIdx].push(...stacks[fromIdx]);
+
+      // Remove the middle stack entirely so indices remain consistent
+      stacks.splice(fromIdx, 1);
+
+      renderStacks();
+      checkEndGame();
     }
-});
-        
-
-
+  });
 }
+
 
 
 
