@@ -263,44 +263,36 @@ function initDragAndDrop() {
   });
 
   interact('.stack').dropzone({
-    ondragenter(event) {
-      event.target.classList.add("drag-over");
-    },
-    ondragleave(event) {
-      event.target.classList.remove("drag-over");
-    },
-    ondrop(event) {
-      const draggedCard = event.relatedTarget;
-      const fromIdx = parseInt(draggedCard.dataset.stack);
-      const toIdx = parseInt(event.target.dataset.index);
+  ondragenter(event) {
+    event.target.classList.add("drag-over");
+  },
+  ondragleave(event) {
+    event.target.classList.remove("drag-over");
+  },
+  ondrop(event) {
+    const draggedCard = event.relatedTarget;
+    const fromIdx = parseInt(draggedCard.dataset.stack);
+    const toIdx = parseInt(event.target.dataset.index);
 
-      if (fromIdx === toIdx) return;
+    if (fromIdx === toIdx) return; // cannot drop on same stack
 
-      // Only allow dragging top card
-      const fromStack = stacks[fromIdx];
-      const topCard = fromStack[fromStack.length - 1];
-      if (draggedCard !== event.target.querySelector(".card") && draggedCard !== topCard) return;
+    const fromStack = stacks[fromIdx];
+    const toStack = stacks[toIdx];
 
-      // Check if middle stack (adjacent)
-      const leftIdx = Math.min(fromIdx, toIdx);
-      const rightIdx = Math.max(fromIdx, toIdx);
-      const midIdx = fromIdx;
+    // Only drag top card
+    const topCard = fromStack[fromStack.length - 1];
+    if (draggedCard !== topCard) return;
 
-      if (midIdx !== leftIdx + 1) return; // ensure it's the middle stack
-      if (rightIdx >= stacks.length) return;
-
-      const leftCard = stacks[leftIdx][stacks[leftIdx].length - 1];
-      const rightCard = stacks[rightIdx][stacks[rightIdx].length - 1];
-
-      if (checkIfPair(leftCard, rightCard)) {
-        stacks[leftIdx].push(...stacks[midIdx]); // merge middle stack into left
-        stacks.splice(midIdx, 1);
-        renderStacks();
-        checkEndGame();
-      }
+    // Only merge if pair is valid
+    const targetCard = toStack[toStack.length - 1];
+    if (checkIfPair(topCard, targetCard)) {
+      toStack.push(...fromStack); // merge dragged stack onto target
+      stacks.splice(fromIdx, 1);  // remove original stack
+      renderStacks();
+      checkEndGame();
     }
-  });
-}
+  }
+});}
 
 function checkEndGame() {
     // If deck is not empty, game can't be over yet
