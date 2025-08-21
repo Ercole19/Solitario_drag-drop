@@ -254,6 +254,7 @@ function initDragAndDrop() {
         target.setAttribute('data-y', y);
       },
       end(event) {
+        // Reset transform
         const target = event.target;
         target.style.transform = 'none';
         target.removeAttribute('data-x');
@@ -263,36 +264,39 @@ function initDragAndDrop() {
   });
 
   interact('.stack').dropzone({
-  ondragenter(event) {
-    event.target.classList.add("drag-over");
-  },
-  ondragleave(event) {
-    event.target.classList.remove("drag-over");
-  },
-  ondrop(event) {
-    const draggedCard = event.relatedTarget;
-    const fromIdx = parseInt(draggedCard.dataset.stack);
-    const toIdx = parseInt(event.target.dataset.index);
+    ondragenter(event) {
+      event.target.classList.add("drag-over");
+    },
+    ondragleave(event) {
+      event.target.classList.remove("drag-over");
+    },
+    ondrop(event) {
+      const draggedCardEl = event.relatedTarget;
+      const fromIdx = parseInt(draggedCardEl.dataset.stack);
+      const toIdx = parseInt(event.target.dataset.index);
 
-    if (fromIdx === toIdx) return; // cannot drop on same stack
+      if (fromIdx === toIdx) return; // cannot drop on same stack
 
-    const fromStack = stacks[fromIdx];
-    const toStack = stacks[toIdx];
+      const fromStack = stacks[fromIdx];
+      const toStack = stacks[toIdx];
 
-    // Only drag top card
-    const topCard = fromStack[fromStack.length - 1];
-    if (draggedCard !== topCard) return;
+      // Only allow moving the top card of the fromStack
+      const topCardObj = fromStack[fromStack.length - 1];
+      const targetCardObj = toStack[toStack.length - 1];
 
-    // Only merge if pair is valid
-    const targetCard = toStack[toStack.length - 1];
-    if (checkIfPair(topCard, targetCard)) {
-      toStack.push(...fromStack); // merge dragged stack onto target
-      stacks.splice(fromIdx, 1);  // remove original stack
+      if (!checkIfPair(topCardObj, targetCardObj)) return;
+
+      // Merge the stack
+      toStack.push(...fromStack);
+      stacks.splice(fromIdx, 1);
+
+      // Re-render stacks and update dataset.stack for each card
       renderStacks();
       checkEndGame();
     }
-  }
-});}
+  });
+}
+
 
 function checkEndGame() {
     // If deck is not empty, game can't be over yet
