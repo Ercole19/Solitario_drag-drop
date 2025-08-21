@@ -16,47 +16,44 @@
     padding: 20px;
   }
   #stacks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 20px;
-    justify-content: flex-start;
-  }
-  .stack {
-    display: flex;
-    flex-direction: column-reverse;
-    align-items: center;
-    position: relative;
-    min-width: 60px;
-    min-height: 90px;
-    border: 2px dashed rgba(255,255,255,0.2);
-    border-radius: 6px;
-  }
-  .card {
-    width: 60px;
-    height: 90px;
-    margin-top: 20px;
-    border-radius: 5px;
-    background-size: cover;
-    background-position: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-    position: relative;
-    cursor: grab;
-  }
-  .stack.drag-over {
-    border-color: yellow;
-  }
-  button {
-    padding: 20px 30px;
-    font-size: 16px;
-    margin-top: 30px;
-    cursor: pointer;
-    border-radius: 8px;
-    border: none;
-    background: #444;
-    color: white;
-    transition: background 0.3s;
-  }
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 12px;
+      justify-content: center;
+      margin: 20px auto;
+      max-width: 600px;
+    }
+    .stack {
+      width: 80px;
+      height: 120px;
+      border: 2px dashed #666;
+      border-radius: 8px;
+      position: relative;
+    }
+    .card {
+      width: 80px;
+      height: 120px;
+      border-radius: 8px;
+      background-size: cover;
+      background-position: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+      user-select: none;
+      touch-action: none;
+    }
+    .drag-over {
+      border-color: yellow;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+      border-radius: 8px;
+      border: none;
+      background: #555;
+      color: white;
+    }
   button:hover:enabled {
     background: #666;
   }
