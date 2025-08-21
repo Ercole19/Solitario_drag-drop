@@ -261,51 +261,45 @@ function initDragAndDrop() {
       }
     }
   });
+   
+  
 
-  interact('.stack').dropzone({
+interact('.stack').dropzone({
     ondrop(event) {
-        const draggedCardEl = event.relatedTarget;
-        const fromStackIdx = parseInt(draggedCardEl.dataset.stack);
-        const toStackIdx = parseInt(event.target.dataset.index);
+        const draggedCardEl = event.relatedTarget; // the middle card being dragged
+        const targetStackEl = event.target; // the left stack
+        const draggedStackIdx = parseInt(draggedCardEl.dataset.stack);
+        const targetStackIdx = parseInt(targetStackEl.dataset.index);
 
-        if (fromStackIdx === toStackIdx) return; // can't drop on self
+        const draggedStack = stacks[draggedStackIdx];
+        const targetStack = stacks[targetStackIdx];
 
-        const fromStack = stacks[fromStackIdx];
-        const toStack = stacks[toStackIdx];
+        const draggedCard = draggedStack[draggedStack.length - 1];
 
-        // Only consider the top card from dragged stack
-        const draggedCard = fromStack[fromStack.length - 1];
+        // Only proceed if dragging middle card (has left and right neighbors)
+        if (draggedStack.length === 1 && draggedStackIdx > 0 && draggedStackIdx < stacks.length - 1) {
+            const leftNeighbor = stacks[draggedStackIdx - 1][stacks[draggedStackIdx - 1].length - 1];
+            const rightNeighbor = stacks[draggedStackIdx + 1][stacks[draggedStackIdx + 1].length - 1];
 
-        // Find original neighbors of the dragged card
-        const originalLeftIdx = fromStackIdx - 1;
-        const originalRightIdx = fromStackIdx + 1;
+            if (leftNeighbor.seed === rightNeighbor.seed) { // or compare value
+                // Merge dragged card into the left stack
+                targetStack.push(draggedCard);
 
-        if (
-            originalLeftIdx >= 0 &&
-            originalRightIdx < stacks.length
-        ) {
-            const leftNeighbor = stacks[originalLeftIdx][stacks[originalLeftIdx].length - 1];
-            const rightNeighbor = stacks[originalRightIdx][stacks[originalRightIdx].length - 1];
-
-            if (checkIfPair(leftNeighbor, rightNeighbor)) {
-                // Merge dragged card to the left stack
-                stacks[toStackIdx].push(draggedCard);
                 // Remove the dragged card from its original stack
-                fromStack.pop();
+                draggedStack.pop();
+
                 renderStacks();
-                checkEndGame();
                 return;
             }
         }
 
-        // Otherwise, fallback to normal merge
-        toStack.push(...fromStack);
-        stacks.splice(fromStackIdx, 1);
-
+        // fallback: normal move/merge if not middle-card condition
+        targetStack.push(...draggedStack);
+        stacks.splice(draggedStackIdx, 1);
         renderStacks();
-        checkEndGame();
     }
 });
+        
 
 
 }
